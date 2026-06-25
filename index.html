@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Focus Timer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0f0f10;
+    color: #e8e6e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    user-select: none;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b6a65;
+    margin-bottom: 2.5rem;
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    margin-bottom: 2.5rem;
+  }
+
+  svg.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+  .ring-bg { fill: none; stroke: #1e1e20; stroke-width: 8; }
+
+  .ring-fg {
+    fill: none;
+    stroke: #7f77dd;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.4s;
+  }
+
+  .ring-fg.break { stroke: #1d9e75; }
+
+  .time-display {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .time {
+    font-size: 52px;
+    font-weight: 300;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: #e8e6e0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .phase {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6a65;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+
+  button {
+    background: none;
+    border: 0.5px solid #2e2e32;
+    color: #a8a6a0;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  button:hover { background: #1a1a1c; color: #e8e6e0; border-color: #3e3e44; }
+  button:active { transform: scale(0.97); }
+
+  button.primary {
+    border-color: #534ab7;
+    color: #afa9ec;
+  }
+  button.primary:hover { background: #1a1828; color: #cecbf6; }
+
+  .sessions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 2.5rem;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2e2e32;
+    transition: background 0.3s;
+  }
+
+  .dot.done { background: #534ab7; }
+
+  .settings {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+
+  .setting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .setting label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4a4a4e;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .num-btn {
+    padding: 4px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+  }
+
+  .val {
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 32px;
+    text-align: center;
+    color: #a8a6a0;
+  }
+
+  .sep { width: 0.5px; height: 40px; background: #2e2e32; }
+</style>
+</head>
+<body>
+
+<h1>Focus Timer</h1>
+
+<div class="ring-wrap">
+  <svg class="ring" viewBox="0 0 100 100">
+    <circle class="ring-bg" cx="50" cy="50" r="44" />
+    <circle class="ring-fg" id="progress" cx="50" cy="50" r="44"
+      stroke-dasharray="276.46"
+      stroke-dashoffset="0" />
+  </svg>
+  <div class="time-display">
+    <div class="time" id="time">25:00</div>
+    <div class="phase" id="phase">focus</div>
+  </div>
+</div>
+
+<div class="sessions" id="sessions"></div>
+
+<div class="controls">
+  <button id="startBtn" class="primary" onclick="toggle()">Start</button>
+  <button onclick="reset()">Reset</button>
+  <button onclick="skip()">Skip</button>
+</div>
+
+<div class="settings">
+  <div class="setting">
+    <label>Focus (min)</label>
+    <div class="setting-row">
+      <button class="num-btn" onclick="adjust('work',-5)">−</button>
+      <span class="val" id="workVal">25</span>
+      <button class="num-btn" onclick="adjust('work',5)">+</button>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="setting">
+    <label>Break (min)</label>
+    <div class="setting-row">
+      <button class="num-btn" onclick="adjust('break',-5)">−</button>
+      <span class="val" id="breakVal">5</span>
+      <button class="num-btn" onclick="adjust('break',5)">+</button>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="setting">
+    <label>Sessions</label>
+    <div class="setting-row">
+      <button class="num-btn" onclick="adjust('sessions',-1)">−</button>
+      <span class="val" id="sessionsVal">4</span>
+      <button class="num-btn" onclick="adjust('sessions',1)">+</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CIRCUMFERENCE = 276.46;
+
+  let cfg = { work: 25, break: 5, sessions: 4 };
+  let state = { phase: 'work', remaining: cfg.work * 60, running: false, session: 0 };
+  let ticker = null;
+
+  const timeEl = document.getElementById('time');
+  const phaseEl = document.getElementById('phase');
+  const progressEl = document.getElementById('progress');
+  const startBtn = document.getElementById('startBtn');
+  const sessionsEl = document.getElementById('sessions');
+
+  function renderDots() {
+    sessionsEl.innerHTML = '';
+    for (let i = 0; i < cfg.sessions; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot' + (i < state.session ? ' done' : '');
+      sessionsEl.appendChild(d);
+    }
+  }
+
+  function fmt(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  }
+
+  function totalSeconds() {
+    return state.phase === 'work' ? cfg.work * 60 : cfg.break * 60;
+  }
+
+  function render() {
+    timeEl.textContent = fmt(state.remaining);
+    phaseEl.textContent = state.phase === 'work' ? 'focus' : 'break';
+    const pct = state.remaining / totalSeconds();
+    progressEl.style.strokeDashoffset = CIRCUMFERENCE * pct;
+    progressEl.classList.toggle('break', state.phase === 'break');
+    startBtn.textContent = state.running ? 'Pause' : 'Start';
+    renderDots();
+  }
+
+  function tick() {
+    if (state.remaining <= 0) {
+      notify();
+      advance();
+      return;
+    }
+    state.remaining--;
+    render();
+  }
+
+  function advance() {
+    if (state.phase === 'work') {
+      state.session++;
+      if (state.session >= cfg.sessions) {
+        state.running = false;
+        clearInterval(ticker);
+        state.phase = 'work';
+        state.session = 0;
+        state.remaining = cfg.work * 60;
+        render();
+        return;
+      }
+      state.phase = 'break';
+      state.remaining = cfg.break * 60;
+    } else {
+      state.phase = 'work';
+      state.remaining = cfg.work * 60;
+    }
+    render();
+  }
+
+  function toggle() {
+    if (state.running) {
+      clearInterval(ticker);
+      state.running = false;
+    } else {
+      state.running = true;
+      ticker = setInterval(tick, 1000);
+    }
+    render();
+  }
+
+  function reset() {
+    clearInterval(ticker);
+    state = { phase: 'work', remaining: cfg.work * 60, running: false, session: 0 };
+    render();
+  }
+
+  function skip() {
+    clearInterval(ticker);
+    state.running = false;
+    state.remaining = 0;
+    advance();
+    render();
+  }
+
+  function adjust(key, delta) {
+    if (key === 'work') {
+      cfg.work = Math.max(5, Math.min(90, cfg.work + delta));
+      document.getElementById('workVal').textContent = cfg.work;
+    } else if (key === 'break') {
+      cfg.break = Math.max(1, Math.min(30, cfg.break + delta));
+      document.getElementById('breakVal').textContent = cfg.break;
+    } else {
+      cfg.sessions = Math.max(1, Math.min(8, cfg.sessions + delta));
+      document.getElementById('sessionsVal').textContent = cfg.sessions;
+    }
+    if (!state.running) reset();
+  }
+
+  function notify() {
+    const msg = state.phase === 'work' ? 'Focus session done — take a break!' : 'Break over — back to work!';
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Focus Timer', { body: msg });
+    }
+    try {
+      const ctx = new AudioContext();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = state.phase === 'work' ? 523 : 440;
+      g.gain.setValueAtTime(0.3, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      o.start(); o.stop(ctx.currentTime + 0.8);
+    } catch(e) {}
+  }
+
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  render();
+</script>
+</body>
+</html>
